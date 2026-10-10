@@ -1,0 +1,14 @@
+.venv/
+.idea/
+.git/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.db
+data/
+.env
+.env.*
+!.env.example
+Dockerfile
+docker-compose.yml
+.dockerignore

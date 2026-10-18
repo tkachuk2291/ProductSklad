@@ -7,7 +7,6 @@ from bot.db.models import Base
 def create_engine(url: str) -> AsyncEngine:
     engine = create_async_engine(url)
     if url.startswith("sqlite"):
-        # Без этого SQLite игнорирует ON DELETE CASCADE / SET NULL
         @event.listens_for(engine.sync_engine, "connect")
         def _enable_fk(dbapi_conn, _):
             cursor = dbapi_conn.cursor()
@@ -17,7 +16,6 @@ def create_engine(url: str) -> AsyncEngine:
     return engine
 
 
-# Колонки, добавленные после первой версии: (таблица, колонка, тип SQL)
 NEW_COLUMNS = [
     ("products", "production_date", "DATE"),
     ("warehouses", "invite_token", "VARCHAR(32)"),

@@ -25,8 +25,6 @@ def get_engine():
 
             _engine = RapidOCR(params={
                 "Global.log_level": "error",
-                # Встроенный определитель «текст вверх ногами» ошибается на точечной печати
-                # («L070826» читается как «9280L07»), поэтому повороты перебираем сами
                 "Global.use_cls": False,
                 "Rec.lang_type": LangRec.ESLAV,
                 "Rec.ocr_version": OCRVersion.PPOCRV5,
@@ -48,13 +46,9 @@ def warmup() -> None:
     log.info("OCR готов: %s", lines)
 
 
-# ---------- поиск дат в тексте ----------
-
 SEP = r"\s?[.,/\-]\s?"
 FULL_DATE = re.compile(rf"(?<!\d)(\d{{1,2}}){SEP}(\d{{1,2}}){SEP}(\d{{4}}|\d{{2}})(?!\d)")
 MONTH_YEAR = re.compile(r"(?<![\d.,/\-])(\d{1,2})\s?[./]\s?(20\d{2})(?![\d.,/\-])")
-# Слитная дата на струйной печати: «L070826», «070826», «EXP07022027». Буквы впереди — код линии/партии или EXP.
-# O вместо 0 — частая ошибка OCR на точечной печати.
 COMPACT = re.compile(r"(?<![\w])([A-Za-zА-ЯЁІЇЄа-яёіїє]{0,3})([\dOoОо]{5,8})(?![\w])")
 _O2ZERO = str.maketrans("OoОо", "0000")
 PREFIX_EXP = ("exp", "bb", "bbe", "ex")
@@ -64,7 +58,6 @@ SHELF_LIFE = re.compile(
     r"(\d{1,3})\s*(міс|мес|month|діб|доб|днів|дні|дней|дня|дн|сут|day|рок|рік|рок|год|лет|year)", re.I
 )
 
-# Латинские буквы, которые OCR путает с кириллицей
 _LAT2CYR = str.maketrans("aceiopxybkmht", "асеіорхувкмнт")
 
 PROD_KW = ("виготов", "виг.", "виг:", "изготов", "изг.", "изг:", "произв", "вироб", "упаков", "пакув", "дата вир")
@@ -78,9 +71,9 @@ SHELF_KW = ("термін", "срок", "зберіг", "хранен", "при�
 class DateScan:
     production: date | None = None
     expiry: date | None = None
-    shelf_life: str | None = None  # как написано: «6 міс»
-    expiry_computed: bool = False  # срок посчитан как «изготовлен + срок хранения»
-    year_guessed: bool = False  # последняя цифра года не прочиталась — год подобран по второй дате
+    shelf_life: str | None = None
+    expiry_computed: bool = False
+    year_guessed: bool = False
     lines: list[str] = field(default_factory=list)
 
 
@@ -142,7 +135,7 @@ def _compact_dates(line: str):
     for m in COMPACT.finditer(line):
         prefix, body = m.group(1).lower(), m.group(2).translate(_O2ZERO)
         if sum(ch.isdigit() for ch in m.group(2)) < 4:
-            continue  # это слово, а не число
+            continue
         label = "exp" if prefix in PREFIX_EXP else "prod" if prefix in PREFIX_PROD else None
         dd, mm = int(body[:2]), int(body[2:4])
         if len(body) == 6:
@@ -150,7 +143,6 @@ def _compact_dates(line: str):
         elif len(body) == 8:
             d = _make_date(dd, mm, int(body[4:]))
         elif len(body) == 5 and prefix and 1 <= dd <= 31 and 1 <= mm <= 12:
-            # «B07022» — последняя цифра года потерялась; год подберём по второй дате
             partial.append((dd, mm, int(body[4])))
             continue
         else:
@@ -179,7 +171,7 @@ def _restore_year(dd: int, mm: int, decade: int, after: date | None = None, befo
 
 def extract_dates(lines: list[str]) -> DateScan:
     scan = DateScan(lines=lines)
-    found: list[tuple[date, str | None]] = []  # (дата, 'prod' | 'exp' | None)
+    found: list[tuple[date, str | None]] = []
     partials: list[tuple[int, int, int]] = []
 
     for i, line in enumerate(lines):
@@ -191,7 +183,7 @@ def extract_dates(lines: list[str]) -> DateScan:
         for m in MONTH_YEAR.finditer(line):
             mm, yy = int(m.group(1)), int(m.group(2))
             if 1 <= mm <= 12:
-                d = _make_date(calendar.monthrange(yy, mm)[1], mm, yy)  # «до 03.2027» = до конца месяца
+                d = _make_date(calendar.monthrange(yy, mm)[1], mm, yy)
                 if d:
                     dates.append((m.start(), m.end(), d, None))
         compact, partial = _compact_dates(line)
@@ -200,7 +192,6 @@ def extract_dates(lines: list[str]) -> DateScan:
 
         prev_end = 0
         for start, end, d, prefix_label in sorted(dates, key=lambda x: x[0]):
-            # Подпись ищем между предыдущей датой и этой, а если её нет — в предыдущей строке
             before = line[prev_end:start].strip() or (lines[i - 1] if i and prev_end == 0 else "")
             prev_end = end
             label = prefix_label
@@ -218,7 +209,6 @@ def extract_dates(lines: list[str]) -> DateScan:
         elif label == "exp" and scan.expiry is None:
             scan.expiry = d
 
-    # Даты без подписи: как на струйной печати «12.08.26  12.02.27» — ранняя = изготовлена, поздняя = годен до
     rest = sorted({d for d, label in found if label is None} - {scan.production, scan.expiry})
     if len(rest) >= 2:
         scan.production = scan.production or rest[0]
@@ -238,7 +228,6 @@ def extract_dates(lines: list[str]) -> DateScan:
     if scan.production and scan.expiry and scan.production > scan.expiry:
         scan.production, scan.expiry = scan.expiry, scan.production
 
-    # Обрезанная дата («B07022»): год восстанавливаем по второй, целой дате
     for dd, mm, decade in partials:
         if scan.production and not scan.expiry:
             scan.expiry = _restore_year(dd, mm, decade, after=scan.production)
@@ -262,10 +251,7 @@ def extract_dates(lines: list[str]) -> DateScan:
     return scan
 
 
-# ---------- распознавание с картинки ----------
-
 def _ocr_lines(image: Image.Image) -> list[str]:
-    # RapidOCR (как и OpenCV) ждёт каналы в порядке BGR — с RGB точечная печать почти не читается
     bgr = np.ascontiguousarray(np.array(image)[:, :, ::-1])
     result = get_engine()(bgr)
     return list(result.txts or [])

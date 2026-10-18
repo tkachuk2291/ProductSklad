@@ -7,9 +7,9 @@ class WarehouseForm(StatesGroup):
 
 
 class AddProduct(StatesGroup):
-    method = State()  # выбор: по штрихкоду или вручную
+    method = State()
     barcode = State()
-    confirm = State()  # подтвердить товар, найденный в Open Food Facts
+    confirm = State()
     name = State()
     brand = State()
     weight = State()

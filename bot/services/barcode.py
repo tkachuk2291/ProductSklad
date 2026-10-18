@@ -17,8 +17,7 @@ OFF_FIELDS = (
 )
 USER_AGENT = "WarehouseTelegramBot/1.0"
 
-GS = "\x1d"  # разделитель полей переменной длины в GS1
-# AI с фиксированной длиной данных, которые нас интересуют
+GS = "\x1d"
 FIXED_AI = {"01": 14, "11": 6, "13": 6, "15": 6, "17": 6}
 VARIABLE_AI = {"10", "21"}
 
@@ -31,7 +30,7 @@ COUNTRY_NAMES = {
 
 @dataclass
 class ScanResult:
-    barcode: str  # EAN/GTIN для поиска
+    barcode: str
     production_date: date | None = None
     expiry_date: date | None = None
     batch: str | None = None
@@ -44,7 +43,7 @@ class ProductInfo:
     weight: str | None
     description: str | None
     photo_url: str | None
-    countries: list[str] = field(default_factory=list)  # для каких стран заведена запись: ["ukraine", ...]
+    countries: list[str] = field(default_factory=list)
 
     @property
     def for_ukraine(self) -> bool:
@@ -70,7 +69,7 @@ def decode_image(data: bytes) -> str | None:
 def _gs1_date(raw: str) -> date | None:
     try:
         yy, mm, dd = int(raw[:2]), int(raw[2:4]), int(raw[4:6])
-        if dd == 0:  # «00» в GS1 = последний день месяца
+        if dd == 0:
             next_month = date(2000 + yy + mm // 12, mm % 12 + 1, 1)
             return date.fromordinal(next_month.toordinal() - 1)
         return date(2000 + yy, mm, dd)
@@ -103,10 +102,9 @@ def parse_code(text: str) -> ScanResult | None:
             end = len(text) if end == -1 else end
             value, pos = text[pos:end], end
         else:
-            break  # криптохвост «Честного ЗНАКа» (91/92/93) и прочее нам не нужно
+            break
 
         if ai == "01":
-            # GTIN-14 с ведущим нулём = обычный EAN-13
             result.barcode = value[1:] if value.startswith("0") else value
         elif ai == "11":
             result.production_date = _gs1_date(value)
@@ -136,7 +134,6 @@ async def lookup(barcode: str) -> ProductInfo | None:
     if data.get("status") != 1:
         return None
     p = data.get("product") or {}
-    # Товары для Украины: украинское название приоритетнее
     name = p.get("product_name_uk") or p.get("product_name") or p.get("product_name_ru")
     if not name:
         return None

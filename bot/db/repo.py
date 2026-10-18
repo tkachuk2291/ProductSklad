@@ -7,8 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.db.models import Product, User, Warehouse, WarehouseMember
 
 
-# ---------- доступ ----------
-
 def accessible_ids(tg_id: int):
     """Подзапрос: id складов, где пользователь владелец или участник."""
     member_of = select(WarehouseMember.warehouse_id).where(WarehouseMember.tg_id == tg_id)
@@ -24,13 +22,11 @@ async def has_access(session: AsyncSession, tg_id: int, wh: Warehouse) -> bool:
     ))
 
 
-# ---------- пользователь / текущий склад ----------
-
 async def get_current_warehouse(session: AsyncSession, tg_id: int) -> Warehouse | None:
     user = await session.get(User, tg_id)
     if not user or not user.current_warehouse_id:
         return None
-    return await get_warehouse(session, tg_id, user.current_warehouse_id)  # доступ могли отозвать
+    return await get_warehouse(session, tg_id, user.current_warehouse_id)
 
 
 async def set_current_warehouse(session: AsyncSession, tg_id: int, warehouse_id: int | None) -> None:
@@ -41,8 +37,6 @@ async def set_current_warehouse(session: AsyncSession, tg_id: int, warehouse_id:
         user.current_warehouse_id = warehouse_id
     await session.commit()
 
-
-# ---------- склады ----------
 
 async def list_warehouses(session: AsyncSession, tg_id: int) -> list[Warehouse]:
     res = await session.scalars(
@@ -80,11 +74,9 @@ async def delete_warehouse(session: AsyncSession, wh: Warehouse) -> None:
     await session.commit()
 
 
-# ---------- совместный доступ ----------
-
 async def get_or_create_invite(session: AsyncSession, wh: Warehouse, regenerate: bool = False) -> str:
     if regenerate or not wh.invite_token:
-        wh.invite_token = secrets.token_urlsafe(12)  # 16 символов, влезает в /start-параметр
+        wh.invite_token = secrets.token_urlsafe(12)
         await session.commit()
     return wh.invite_token
 
@@ -150,8 +142,6 @@ async def count_products(session: AsyncSession, warehouse_id: int) -> int:
         select(func.count()).select_from(Product).where(Product.warehouse_id == warehouse_id)
     ) or 0
 
-
-# ---------- товары ----------
 
 async def list_products(session: AsyncSession, warehouse_id: int, offset: int, limit: int) -> list[Product]:
     res = await session.scalars(

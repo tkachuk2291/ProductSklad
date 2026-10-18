@@ -18,7 +18,6 @@ router.message.filter(F.chat.type == "private")
 router.callback_query.filter(F.message.chat.type == "private")
 
 MAX_NAME = 100
-# Обычный текст, а не команда и не кнопка главного меню
 plain_text = F.text & ~F.text.startswith("/") & ~F.text.in_(kb.MENU_BUTTONS)
 
 
@@ -31,8 +30,6 @@ async def warehouses_view(session: AsyncSession, user_id: int):
         text = "Складов пока нет. Создай первый 👇"
     return text, kb.warehouses_kb(warehouses, current.id if current else None, user_id)
 
-
-# ---------- список и выбор ----------
 
 @router.message(Command("sklad"))
 @router.message(F.text == kb.BTN_WAREHOUSES)
@@ -61,8 +58,6 @@ async def cb_open(callback: CallbackQuery, callback_data: kb.WhCb, session: Asyn
     await callback.answer(f"Выбран склад «{wh.name}»")
 
 
-# ---------- создание ----------
-
 @router.callback_query(kb.WhCb.filter(F.action == "new"))
 async def cb_new(callback: CallbackQuery, state: FSMContext):
     await state.set_state(WarehouseForm.create_name)
@@ -83,8 +78,6 @@ async def create_name(message: Message, session: AsyncSession, state: FSMContext
     text, markup = await render_products(session, message.from_user.id, config.page_size)
     await message.answer(text, reply_markup=markup)
 
-
-# ---------- настройки: переименование / удаление ----------
 
 @router.callback_query(kb.WhCb.filter(F.action == "settings"))
 async def cb_settings(callback: CallbackQuery, callback_data: kb.WhCb, session: AsyncSession):
@@ -155,8 +148,6 @@ async def cb_delete_ok(callback: CallbackQuery, callback_data: kb.WhCb, session:
     await replace_message(callback.message, f"Склад удалён.\n\n{text}", markup)
     await callback.answer()
 
-
-# ---------- совместный доступ ----------
 
 INVITE_PREFIX = "inv_"
 

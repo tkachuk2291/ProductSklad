@@ -97,7 +97,7 @@ async def send_product_card(message: Message, product: Product, page: int = 0) -
             await message.answer_photo(photo, caption=caption, reply_markup=markup)
             return
         except TelegramBadRequest:
-            pass  # битая ссылка на фото — покажем без него
+            pass
     await message.answer(caption, reply_markup=markup)
 
 

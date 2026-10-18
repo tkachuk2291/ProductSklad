@@ -56,8 +56,6 @@ async def allowed_warehouse(session: AsyncSession, bot: Bot, chat: Chat, wh_id: 
     return next((wh for wh in await chat_warehouses(session, bot, chat, by) if wh.id == wh_id), None)
 
 
-# ---------- экраны ----------
-
 async def warehouses_screen(session: AsyncSession, bot: Bot, chat: Chat, by: int):
     mention, _ = await bot_link(bot)
     warehouses = await chat_warehouses(session, bot, chat, by)
@@ -107,7 +105,7 @@ async def replace(message: Message) -> None:
 
 async def show(callback: CallbackQuery, text: str, markup) -> None:
     message = callback.message
-    if message.text is None:  # сейчас на экране карточка с фото
+    if message.text is None:
         await replace(message)
         await message.answer(text, reply_markup=markup)
         return
@@ -127,11 +125,9 @@ async def show_card(callback: CallbackQuery, product: Product, markup) -> None:
             await replace(callback.message)
             return
         except TelegramBadRequest:
-            pass  # битая ссылка на фото — покажем без него
+            pass
     await show(callback, caption, markup)
 
-
-# ---------- команда ----------
 
 @router.message(Command("sklad", "stock"))
 async def group_sklad(message: Message, session: AsyncSession, bot: Bot):
@@ -147,14 +143,12 @@ async def group_start(message: Message):
 @router.channel_post(Command("sklad", "stock"))
 async def channel_sklad(message: Message, session: AsyncSession, bot: Bot):
     try:
-        await message.delete()  # в канале убираем саму команду, остаётся только меню
+        await message.delete()
     except TelegramBadRequest:
         pass
     text, markup = await warehouses_screen(session, bot, message.chat, by=0)
     await message.answer(text, reply_markup=markup)
 
-
-# ---------- кнопки ----------
 
 @router.callback_query(kb.ChatCb.filter())
 async def cb_chat(callback: CallbackQuery, callback_data: kb.ChatCb, session: AsyncSession, bot: Bot):

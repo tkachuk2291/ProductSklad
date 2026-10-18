@@ -13,7 +13,7 @@ BTN_EXPIRY = "⏰ Сроки годности"
 class WhCb(CallbackData, prefix="wh"):
     action: str  # list | open | new | settings | rename | delete | delete_ok | access | regen | kick | leave | leave_ok
     id: int = 0
-    uid: int = 0  # tg_id участника (для kick)
+    uid: int = 0
 
 
 class ProdCb(CallbackData, prefix="p"):
@@ -43,7 +43,7 @@ def warehouses_kb(warehouses: list[Warehouse], current_id: int | None, user_id: 
     kb = InlineKeyboardBuilder()
     for wh in warehouses:
         mark = "✅ " if wh.id == current_id else ""
-        shared = " 👥" if user_id is not None and wh.owner_id != user_id else ""  # чужой склад, к которому дали доступ
+        shared = " 👥" if user_id is not None and wh.owner_id != user_id else ""
         kb.button(text=f"{mark}{wh.name}{shared}", callback_data=WhCb(action="open", id=wh.id))
     kb.button(text="➕ Новый склад", callback_data=WhCb(action="new"))
     kb.adjust(1)

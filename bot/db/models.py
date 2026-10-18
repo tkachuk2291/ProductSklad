@@ -26,7 +26,7 @@ class Warehouse(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     owner_id: Mapped[int] = mapped_column(BigInteger, index=True)
     name: Mapped[str] = mapped_column(String(100))
-    invite_token: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)  # для ссылки-приглашения
+    invite_token: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     members: Mapped[list["WarehouseMember"]] = relationship(cascade="all, delete-orphan", passive_deletes=True)
@@ -44,7 +44,7 @@ class WarehouseMember(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     warehouse_id: Mapped[int] = mapped_column(ForeignKey("warehouses.id", ondelete="CASCADE"), index=True)
     tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
-    name: Mapped[str] = mapped_column(String(200))  # имя в Telegram — чтобы владелец видел, кто есть
+    name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -56,10 +56,10 @@ class Product(Base):
     barcode: Mapped[str | None] = mapped_column(String(64), index=True)
     name: Mapped[str] = mapped_column(String(200))
     brand: Mapped[str | None] = mapped_column(String(200))
-    weight: Mapped[str | None] = mapped_column(String(50))  # «150 г», «1 л» — как написано на упаковке
+    weight: Mapped[str | None] = mapped_column(String(50))
     description: Mapped[str | None] = mapped_column(Text)
-    photo_file_id: Mapped[str | None] = mapped_column(String(255))  # фото, загруженное в Telegram
-    photo_url: Mapped[str | None] = mapped_column(String(500))  # фото из Open Food Facts
+    photo_file_id: Mapped[str | None] = mapped_column(String(255))
+    photo_url: Mapped[str | None] = mapped_column(String(500))
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     production_date: Mapped[date | None] = mapped_column(Date)
     expiry_date: Mapped[date | None] = mapped_column(Date)

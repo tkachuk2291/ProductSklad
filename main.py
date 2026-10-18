@@ -37,7 +37,6 @@ async def main() -> None:
         BotCommand(command="sklad", description="Склады и товары"),
     ])
 
-    # Модель OCR грузится несколько секунд (в первый раз ещё и скачивается) — грузим заранее в фоне
     warmup = asyncio.create_task(asyncio.to_thread(dates_ocr.warmup))
 
     try:

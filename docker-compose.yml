@@ -5,12 +5,11 @@ services:
     container_name: sklad-bot
     restart: unless-stopped
     environment:
-      # В Portainer: Stacks → твой стек → Environment variables → BOT_TOKEN
       BOT_TOKEN: ${BOT_TOKEN:?Укажи BOT_TOKEN в переменных окружения стека}
       PAGE_SIZE: ${PAGE_SIZE:-10}
       TZ: ${TZ:-Europe/Kyiv}
     volumes:
-      - sklad_data:/app/data  # SQLite-база warehouse.db — переживает пересборку и обновления
+      - sklad_data:/app/data
     logging:
       driver: json-file
       options:

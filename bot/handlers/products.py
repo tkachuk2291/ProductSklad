@@ -30,8 +30,6 @@ plain_text = F.text & ~F.text.startswith("/") & ~F.text.in_(kb.MENU_BUTTONS)
 DATE_FORMATS = ("%d.%m.%Y", "%d.%m.%y", "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d")
 
 
-# =====================  СПИСОК И КАРТОЧКА  =====================
-
 @router.message(Command("items"))
 @router.message(F.text == kb.BTN_PRODUCTS)
 async def cmd_items(message: Message, session: AsyncSession, state: FSMContext, config: Config):
@@ -89,10 +87,6 @@ async def cb_delete_ok(callback: CallbackQuery, callback_data: kb.ProdCb, sessio
     await callback.answer()
 
 
-# =====================  ДОБАВЛЕНИЕ ТОВАРА  =====================
-# Шаг 1: штрихкод (цифрами или фото). Нашли данные → сразу к количеству.
-# Не нашли / нажали «вручную» → название → бренд → вес → фото → количество → срок.
-
 async def start_add(message: Message, user_id: int, session: AsyncSession, state: FSMContext, edit: bool = False):
     wh = await repo.get_current_warehouse(session, user_id)
     if wh is None:
@@ -123,8 +117,6 @@ async def cb_add(callback: CallbackQuery, session: AsyncSession, state: FSMConte
     await start_add(callback.message, callback.from_user.id, session, state, edit=True)
     await callback.answer()
 
-
-# ---------- шаг 1: выбор способа и штрихкод ----------
 
 @router.callback_query(AddProduct.method, kb.FormCb.filter(F.action == "barcode"))
 async def cb_by_barcode(callback: CallbackQuery, state: FSMContext):
@@ -177,7 +169,6 @@ async def process_barcode(message: Message, raw: str, session: AsyncSession, sta
     if scan.expiry_date:
         found_dates += f"\nГоден до: {scan.expiry_date:%d.%m.%Y}"
 
-    # Такой товар уже лежит на этом складе — спрашиваем, сколько прибавить
     existing = await repo.find_by_barcode(session, data["warehouse_id"], scan.barcode)
     if existing:
         await state.update_data(existing_id=existing.id)
@@ -191,7 +182,6 @@ async def process_barcode(message: Message, raw: str, session: AsyncSession, sta
 
     await message.answer(f"🔎 Ищу товар <code>{escape(scan.barcode)}</code>…")
 
-    # 1) Свои склады — эти данные ты вводил сам, им доверяем без вопросов
     known = await repo.find_by_barcode_anywhere(session, message.from_user.id, scan.barcode)
     if known:
         await state.update_data(
@@ -207,7 +197,6 @@ async def process_barcode(message: Message, raw: str, session: AsyncSession, sta
         )
         return
 
-    # 2) Open Food Facts — база заполняется кем угодно, поэтому просим подтвердить
     info = await bc.lookup(scan.barcode)
     if info is None:
         await state.set_state(AddProduct.name)
@@ -254,14 +243,11 @@ async def cb_confirm_found(callback: CallbackQuery, state: FSMContext):
     StateFilter(AddProduct.method, AddProduct.barcode, AddProduct.confirm), kb.FormCb.filter(F.action == "manual")
 )
 async def cb_manual(callback: CallbackQuery, state: FSMContext):
-    # Отбрасываем неверные данные из Open Food Facts, штрихкод и дату из кода оставляем
     await state.update_data(name=None, brand=None, weight=None, description=None, photo_url=None)
     await state.set_state(AddProduct.name)
     await replace_message(callback.message, "Введи <b>название</b> товара:", kb.cancel_kb())
     await callback.answer()
 
-
-# ---------- ручной ввод ----------
 
 async def ask_brand(message: Message, state: FSMContext):
     await state.set_state(AddProduct.brand)
@@ -366,7 +352,7 @@ async def add_to_existing(message: Message, session: AsyncSession, state: FSMCon
         await message.answer("Товар пропал со склада, попробуй добавить заново: /add")
         return
     await repo.change_quantity(session, product, n)
-    if data.get("expiry"):  # в DataMatrix были даты новой партии — обновим
+    if data.get("expiry"):
         product.expiry_date = date.fromisoformat(data["expiry"])
     if data.get("production"):
         product.production_date = date.fromisoformat(data["production"])
@@ -440,9 +426,6 @@ async def save_product(message: Message, session: AsyncSession, state: FSMContex
     await send_product_card(message, product)
 
 
-# =====================  РЕДАКТИРОВАНИЕ ТОВАРА  =====================
-# Название → бренд → срок годности. «Пропустить» оставляет текущее значение.
-
 @router.callback_query(kb.ProdCb.filter(F.action == "edit"))
 async def cb_edit(callback: CallbackQuery, callback_data: kb.ProdCb, session: AsyncSession, state: FSMContext):
     product = await repo.get_product(session, callback.from_user.id, callback_data.id)
@@ -509,10 +492,6 @@ async def edit_expiry(message: Message, session: AsyncSession, state: FSMContext
     await state.update_data(expiry=parsed.isoformat())
     await edit_finish(message, session, state, message.from_user.id)
 
-
-
-# =====================  СРОК ГОДНОСТИ ПО ФОТО  =====================
-# Работает на шаге «срок годности» и при добавлении, и при редактировании.
 
 @router.message(StateFilter(AddProduct.expiry, EditProduct.expiry), F.photo)
 async def expiry_photo(message: Message, bot: Bot, state: FSMContext):

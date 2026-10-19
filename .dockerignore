@@ -12,3 +12,4 @@ data/
 Dockerfile
 docker-compose.yml
 .dockerignore
+graft/

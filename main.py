@@ -1,5 +1,4 @@
 import asyncio
-import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -9,13 +8,15 @@ from aiogram.types import BotCommand, BotCommandScopeAllGroupChats, BotCommandSc
 
 from bot.config import load_config
 from bot.db.session import create_engine, init_db
+from bot.logsetup import aiogram_middleware, setup_logging, watch_loop
 from bot.handlers import expiry, group, products, start, warehouses
 from bot.middlewares import DbSessionMiddleware
 from bot.services import dates_ocr
 
 
 async def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    setup_logging("sklad-bot")
+    watch_loop()
     config = load_config()
 
     engine = create_engine(config.database_url)
@@ -23,6 +24,7 @@ async def main() -> None:
 
     bot = Bot(config.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=MemoryStorage(), config=config)
+    dp.update.outer_middleware(aiogram_middleware())
     dp.update.outer_middleware(DbSessionMiddleware(session_pool))
     dp.include_routers(start.router, warehouses.router, products.router, expiry.router, group.router)
 
